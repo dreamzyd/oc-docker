@@ -6,10 +6,10 @@ services:
     # 构建配置
     build:
       context: .
-      dockerfile: Dockerfile.official
+      dockerfile: Dockerfile
     
     # 镜像名称
-    image: openclaw:official
+    image: openclaw:local
     
     # 不指定容器名，让 Docker Compose 自动管理
     # 容器名格式：<项目名>_openclaw_1
