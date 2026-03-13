@@ -8,7 +8,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/yourusername/openclaw-docker.git
+git clone git@github.com:dreamzyd/oc-docker.git
 cd openclaw-docker
 
 # 2. 配置环境变量
@@ -67,9 +67,37 @@ openclaw-docker/
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `OPENCLAW_VERSION` | OpenClaw 版本 | `latest` |
-| `OPENCLAW_DEFAULT_MODEL` | 默认模型 | `bailian/qwen3.5-plus` |
 | `OPENCLAW_PORT` | Gateway 端口 | `18789` |
 | `TZ` | 时区 | `Asia/Shanghai` |
+
+### ⚠️ 重要：模型配置
+
+**`.env` 文件中的 `OPENCLAW_DEFAULT_MODEL` 不生效！**
+
+**需要修改 `.openclaw/openclaw.json` 文件**：
+
+```bash
+# 1. 编辑配置文件
+vi .openclaw/openclaw.json
+
+# 2. 修改 models 部分
+{
+  "models": {
+    "providers": {
+      "bailian": {
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "apiKey": "sk-xxxxxxxxxxxxx"
+      }
+    },
+    "defaults": {
+      "primary": "bailian/qwen3.5-plus"
+    }
+  }
+}
+
+# 3. 重启容器
+docker compose restart
+```
 
 ### 端口配置
 

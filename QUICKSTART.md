@@ -16,14 +16,14 @@ cp .env.example .env
 vi .env
 ```
 
-**修改这两行即可**：
+**修改配置**：
 
 ```bash
-# 选择你的模型
-OPENCLAW_DEFAULT_MODEL=bailian/qwen3.5-plus
-
 # 设置端口（默认 18789）
 OPENCLAW_PORT=18789
+
+# 注意：模型配置需要修改 .openclaw/openclaw.json 文件
+# 见 README.md 中的"重要：模型配置"部分
 ```
 
 ### 步骤 3：启动
