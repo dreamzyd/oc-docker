@@ -1,0 +1,70 @@
+# OpenClaw 官方 Docker Compose 配置
+# 文档：https://docs.openclaw.ai
+
+services:
+  openclaw:
+    # 构建配置
+    build:
+      context: .
+      dockerfile: Dockerfile.official
+    
+    # 镜像名称
+    image: openclaw:official
+    
+    # 不指定容器名，让 Docker Compose 自动管理
+    # 容器名格式：<项目名>_openclaw_1
+    # 项目名默认使用目录名（如 openclaw2、openclaw3）
+    # 这样可以同时运行多个实例而不冲突
+    
+    # 重启策略（自动重启）
+    restart: unless-stopped
+    
+    # 网络模式：使用 host 模式，容器直接使用主机网络
+    # 优点：无需端口映射，性能更好，无 NAT 开销
+    # 缺点：容器端口直接占用主机端口
+    network_mode: host
+    
+    # 卷挂载 - 持久化数据
+    volumes:
+      # 映射整个 .openclaw 目录（包括 openclaw.json 配置）
+      # 这样可以保证配置、凭证、身份等所有数据持久化
+      - ./.openclaw:/root/.openclaw:rw
+    
+    # 环境变量
+    environment:
+      # 时区
+      - TZ=Asia/Shanghai
+      # Node.js 环境
+      - NODE_ENV=production
+      # 默认模型（可选）
+      - OPENCLAW_DEFAULT_MODEL=${OPENCLAW_DEFAULT_MODEL:-anthropic/claude-opus-4-6}
+      # Gateway 监听端口（host 网络模式必需）
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_PORT:-8082}
+      # 代理配置（可选，用于访问 GitHub 等受限网站）
+      # - http_proxy=http://username:password@proxy.example.com:8080
+      # - https_proxy=http://username:password@proxy.example.com:8080
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:18789/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # 资源限制（可选，根据服务器性能调整）
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 2G
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 512M
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

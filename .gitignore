@@ -1,0 +1,38 @@
+# OpenClaw Docker .gitignore
+
+# 环境变量（包含敏感信息）
+.env
+
+# OpenClaw 数据目录（包含配置、凭证）
+.openclaw/
+
+# 备份文件
+backups/
+*.tar.gz
+
+# 日志文件
+logs/
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE 配置
+.idea/
+.vscode/
+*.sublime-*
+
+# Node.js
+node_modules/
+npm-debug.log
+
+# Docker
+docker-compose.override.yml
