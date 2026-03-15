@@ -18,6 +18,8 @@ logs/
 *.tmp
 *.bak
 *~
+*.md.bak
+SSH_SETUP.md
 
 # 系统文件
 .DS_Store

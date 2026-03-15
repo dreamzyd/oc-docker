@@ -20,6 +20,9 @@ RUN apk add --no-cache \
     bash \
     ca-certificates
 
+# 配置 npm 使用国内镜像（加速安装）
+RUN npm config set registry https://registry.npmmirror.com
+
 # 安装 OpenClaw（官方 npm 包）
 RUN npm install -g openclaw@latest
 
