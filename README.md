@@ -330,6 +330,80 @@ vi .env  # OPENCLAW_PORT=8082
 docker compose down && docker compose up -d
 ```
 
+### 🚨 容器连续崩溃/无限重启
+
+**症状：** 服务器重启后容器反复崩溃，系统卡死
+
+**原因：** 内存限制不足，容器启动时 OOM 崩溃，Docker 自动重启形成循环
+
+**解决方案：**
+
+```bash
+# 1. 查看容器状态（确认是否反复重启）
+docker compose ps
+
+# 2. 查看重启次数
+docker inspect <容器 ID> | grep RestartCount
+
+# 3. 查看日志（找到崩溃原因）
+docker compose logs --tail=100
+
+# 4. 如果是因为内存不足，降低内存限制
+vi .env
+# 修改为更保守的值：
+# CONTAINER_MEMORY_LIMIT=600
+# NODE_MEMORY_LIMIT=384
+
+# 5. 停止容器（如果正在无限重启）
+docker compose down
+
+# 6. 重新启动
+docker compose up -d
+
+# 7. 持续监控内存
+docker stats
+```
+
+**预防机制：**
+- `restart: on-failure:3` - 最多自动重启 3 次，避免无限循环
+- `ulimits.core: 0` - 禁用 core 文件，防止磁盘占满
+- 健康检查 `retries: 5` - 连续 5 次失败才标记 unhealthy，避免误判
+
+**如果连续崩溃 3 次后容器停止：**
+```bash
+# 查看最后日志
+docker compose logs --tail=200
+
+# 通常是内存不足，需要：
+# 1. 升级服务器内存
+# 2. 或降低 NODE_MEMORY_LIMIT
+# 3. 或关闭其他占用内存的服务
+```
+
+### 📊 内存不足排查
+
+```bash
+# 1. 查看系统内存
+free -h
+
+# 2. 查看容器内存使用
+docker stats --no-stream
+
+# 3. 查看是否有 OOM 记录
+dmesg | grep -i "out of memory"
+
+# 4. 查看其他进程的内存占用
+ps aux --sort=-%mem | head -20
+```
+
+**推荐配置（1.6GB 服务器）：**
+```bash
+CONTAINER_MEMORY_LIMIT=600   # 容器硬限制 600MB
+NODE_MEMORY_LIMIT=384        # Node.js 堆内存 384MB
+```
+
+---
+
 ## 📚 官方文档
 
 - [OpenClaw 官方文档](https://docs.openclaw.ai)

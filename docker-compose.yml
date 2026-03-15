@@ -16,8 +16,10 @@ services:
     # 项目名默认使用目录名（如 openclaw2、openclaw3）
     # 这样可以同时运行多个实例而不冲突
     
-    # 重启策略（自动重启）
-    restart: unless-stopped
+    # 重启策略（防止无限重启循环）
+    # on-failure:3 = 最多重启 3 次，避免内存崩溃后无限重启导致服务器卡死
+    # 如果容器连续崩溃 3 次，需要手动检查日志和配置
+    restart: on-failure:3
     
     # 网络模式：使用 host 模式，容器直接使用主机网络
     # 优点：无需端口映射，性能更好，无 NAT 开销
@@ -52,13 +54,19 @@ services:
     mem_limit: ${CONTAINER_MEMORY_LIMIT:-800}m
     memswap_limit: ${CONTAINER_MEMORY_LIMIT:-800}m
     
-    # 健康检查
+    # 禁用 core 文件生成（防止崩溃时产生大型 core 文件占用磁盘）
+    ulimits:
+      core: 0
+    
+    # 健康检查（增强版）
+    # 检测 Gateway 是否正常响应，连续失败 5 次后标记为 unhealthy
+    # unhealthy 不会自动重启，需要配合 restart 策略
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:18789/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      test: ["CMD-SHELL", "curl -f -s --max-time 5 http://127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}/ || exit 1"]
+      interval: 30s          # 每 30 秒检查一次
+      timeout: 10s           # 超时 10 秒
+      retries: 5             # 连续 5 次失败才标记为 unhealthy（避免误判）
+      start_period: 90s      # 启动后 90 秒内不检查（给足启动时间）
     
     # 资源限制（可选，根据服务器性能调整）
     # deploy:
