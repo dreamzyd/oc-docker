@@ -11,6 +11,10 @@ LABEL version="1.0.0"
 
 # 设置时区（Alpine 使用 apk 安装 tzdata）
 ENV TZ=Asia/Shanghai
+
+# 使用国内 Alpine 镜像源（加速 apk 安装）
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 RUN apk add --no-cache tzdata
 
 # 安装必要的系统工具
