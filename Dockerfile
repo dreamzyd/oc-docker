@@ -12,9 +12,6 @@ LABEL version="1.0.0"
 # 设置时区（Alpine 使用 apk 安装 tzdata）
 ENV TZ=Asia/Shanghai
 
-# 增加 Node.js 内存限制（防止 OOM，默认约 512MB 太小）
-ENV NODE_OPTIONS="--max-old-space-size=1024"
-
 # 使用国内 Alpine 镜像源（加速 apk 安装）
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 

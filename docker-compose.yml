@@ -40,9 +40,17 @@ services:
       - OPENCLAW_DEFAULT_MODEL=${OPENCLAW_DEFAULT_MODEL:-anthropic/claude-opus-4-6}
       # Gateway 监听端口（host 网络模式必需）
       - OPENCLAW_GATEWAY_PORT=${OPENCLAW_PORT:-8082}
+      # Node.js 堆内存限制（MB），根据服务器内存调整
+      # 1.6GB 服务器单实例：512，双实例：256
+      # 2GB+ 服务器：768-1024
+      - NODE_OPTIONS=--max-old-space-size=${NODE_MEMORY_LIMIT:-512}
       # 代理配置（可选，用于访问 GitHub 等受限网站）
       # - http_proxy=http://username:password@proxy.example.com:8080
       # - https_proxy=http://username:password@proxy.example.com:8080
+    
+    # 容器资源限制
+    mem_limit: ${CONTAINER_MEMORY_LIMIT:-800}m
+    memswap_limit: ${CONTAINER_MEMORY_LIMIT:-800}m
     
     # 健康检查
     healthcheck:
