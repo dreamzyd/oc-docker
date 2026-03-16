@@ -82,15 +82,19 @@ cd openclaw-docker
 cp .env.example .env
 vi .env  # 编辑配置
 
-# 3. 启动容器
+# 3. 启动容器（首次启动会生成配置文件）
 docker compose up -d
 
 # 4. 查看状态
 docker compose ps
 
-# 5. 访问 Control UI
+# 5. 访问 Control UI 并配置模型
 # 本地访问：http://127.0.0.1:18789/
 # SSH 隧道：ssh -N -L 18789:127.0.0.1:18789 user@host
+# 首次登录需要使用 gateway token（在 .openclaw/openclaw.json 中）
+
+# 6. 查看 gateway token
+docker compose exec openclaw cat /root/.openclaw/openclaw.json | grep token
 ```
 
 ### 多节点部署
@@ -139,25 +143,61 @@ openclaw-docker/
 
 ### ⚠️ 重要：模型配置
 
-**`.env` 文件中的 `OPENCLAW_DEFAULT_MODEL` 不生效！**
+**首次启动时会自动生成 `.openclaw/openclaw.json` 文件，需要在 UI 登录时配置！**
 
-**需要修改 `.openclaw/openclaw.json` 文件**：
+**方法一：通过 Control UI 配置（推荐）**
+
+```bash
+# 1. 启动容器（首次启动会生成配置文件）
+docker compose up -d
+
+# 2. 访问 Control UI
+# 本地访问：http://127.0.0.1:18789/
+# SSH 隧道：ssh -N -L 18789:127.0.0.1:18789 user@host
+
+# 3. 在 UI 中登录并配置模型
+# - 使用 gateway token 登录（在 .openclaw/openclaw.json 中查看）
+# - 在设置页面配置模型提供商和 API Key
+
+# 4. 查看 gateway token（如忘记）
+docker compose exec openclaw cat /root/.openclaw/openclaw.json | grep token
+```
+
+**方法二：手动修改配置文件**
 
 ```bash
 # 1. 编辑配置文件
 vi .openclaw/openclaw.json
 
-# 2. 修改 models 部分
+# 2. 修改 models 部分（参考阿里云百炼文档）
 {
   "models": {
+    "mode": "merge",
     "providers": {
       "bailian": {
-        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "apiKey": "sk-xxxxxxxxxxxxx"
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "sk-你的百炼 API Key",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "api": "openai-completions",
+            "reasoning": false,
+            "input": ["text", "image"],
+            "cost": {"input": 0, "output": 0},
+            "contextWindow": 1000000,
+            "maxTokens": 65536
+          }
+        ]
       }
-    },
+    }
+  },
+  "agents": {
     "defaults": {
-      "primary": "bailian/qwen3.5-plus"
+      "model": {
+        "primary": "bailian/qwen3.5-plus"
+      }
     }
   }
 }
@@ -165,6 +205,11 @@ vi .openclaw/openclaw.json
 # 3. 重启容器
 docker compose restart
 ```
+
+**获取百炼 API Key：**
+- 访问 [阿里云百炼控制台](https://bailian.console.aliyun.com/)
+- 创建 API Key 并复制
+- 粘贴到配置文件中
 
 ### 端口配置
 
