@@ -1,4 +1,3 @@
-# OpenClaw 官方 Docker 镜像
 # 基于官方 npm 包构建
 # 文档：https://docs.openclaw.ai
 
