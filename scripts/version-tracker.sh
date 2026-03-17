@@ -46,11 +46,11 @@ if [ -z "$CONTAINER_EXISTS" ]; then
 fi
 
 # 从容器中获取 openclaw 版本
-OPENCLAW_VERSION=$(docker compose exec -T openclaw npm list -g openclaw 2>/dev/null | grep openclaw | sed 's/.*@//' | head -1)
+OPENCLAW_VERSION=$(docker compose exec -T openclaw openclaw --version 2>/dev/null | head -1 | sed 's/OpenClaw //' | sed 's/ .*//')
 
 if [ -z "$OPENCLAW_VERSION" ]; then
     # 尝试另一种方式
-    OPENCLAW_VERSION=$(docker compose exec -T openclaw openclaw --version 2>/dev/null | head -1)
+    OPENCLAW_VERSION=$(docker compose exec -T openclaw npm list -g openclaw 2>/dev/null | grep openclaw | sed 's/.*@//' | head -1)
 fi
 
 if [ -z "$OPENCLAW_VERSION" ]; then
@@ -92,12 +92,17 @@ if [ "$OPENCLAW_VERSION" != "$RECORDED_VERSION" ]; then
         echo -e "${GREEN}  开始执行...${NC}"
         
         # 3.1 给镜像打标签
-        echo -e "${YELLOW}[3/4] 给镜像打标签...${NC}"
+        echo -e "${YELLOW}[3/5] 给镜像打标签...${NC}"
         docker tag openclaw:local "openclaw:$OPENCLAW_VERSION"
         echo "  ✅ 镜像标签：openclaw:$OPENCLAW_VERSION"
         
-        # 3.2 更新 docker-compose.yml
-        echo -e "${YELLOW}[4/4] 更新 docker-compose.yml...${NC}"
+        # 3.2 删除旧的 local 标签（避免混淆）
+        echo -e "${YELLOW}[4/5] 删除旧的 local 标签...${NC}"
+        docker rmi openclaw:local
+        echo "  ✅ 已删除 openclaw:local"
+        
+        # 3.3 更新 docker-compose.yml
+        echo -e "${YELLOW}[5/5] 更新 docker-compose.yml...${NC}"
         if grep -q "image: openclaw:" "$COMPOSE_FILE"; then
             # 使用 sed 更新镜像标签（兼容 macOS 和 Linux）
             if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -110,9 +115,34 @@ if [ "$OPENCLAW_VERSION" != "$RECORDED_VERSION" ]; then
             echo "  ⚠️  未在 docker-compose.yml 中找到 image 配置，跳过"
         fi
         
-        # 3.3 记录新版本
+        # 3.4 记录新版本
         echo "$OPENCLAW_VERSION" > "$VERSION_FILE"
         echo "  ✅ 已记录到 .openclaw-version"
+        
+        # 3.5 重启容器验证
+        echo ""
+        echo -e "${YELLOW}🔄 重启容器验证新标签...${NC}"
+        docker compose down
+        docker compose up -d
+        sleep 5
+        
+        # 检查容器状态
+        if docker compose ps | grep -q "Up"; then
+            echo "  ✅ 容器启动成功"
+            
+            # 验证使用的镜像
+            CONTAINER_IMAGE=$(docker compose ps -q openclaw | xargs docker inspect --format='{{.Config.Image}}' 2>/dev/null)
+            echo "  📋 容器使用镜像：$CONTAINER_IMAGE"
+            
+            if [[ "$CONTAINER_IMAGE" == *"$OPENCLAW_VERSION" ]]; then
+                echo "  ✅ 验证通过：容器使用的是新版本镜像"
+            else
+                echo -e "${YELLOW}  ⚠️  提示：容器可能仍在使用旧镜像，请手动检查${NC}"
+            fi
+        else
+            echo -e "${RED}  ❌ 容器启动失败，请检查日志${NC}"
+            docker compose logs --tail=20
+        fi
         
         echo ""
         echo -e "${GREEN}✅ 版本追踪完成！${NC}"
