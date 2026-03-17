@@ -2,6 +2,10 @@
 
 # OpenClaw Docker 版本追踪脚本
 # 作用：build 后获取容器中的 openclaw 版本，提示用户是否更新镜像标签
+#
+# 用法：
+#   ./scripts/version-tracker.sh           # 交互模式（询问用户）
+#   ./scripts/version-tracker.sh --auto    # 自动模式（不询问，直接执行）
 
 set -e
 
@@ -17,9 +21,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# 检测 --auto 参数
+AUTO_MODE=false
+if [[ "$1" == "--auto" ]]; then
+    AUTO_MODE=true
+fi
+
 echo -e "${BLUE}================================${NC}"
 echo -e "${BLUE}  OpenClaw 版本追踪${NC}"
 echo -e "${BLUE}================================${NC}"
+
+if $AUTO_MODE; then
+    echo -e "${YELLOW}🤖 自动模式：无需确认，直接执行${NC}"
+fi
 echo ""
 
 # 1. 构建容器（如果尚未构建）
@@ -83,9 +97,14 @@ if [ "$OPENCLAW_VERSION" != "$RECORDED_VERSION" ]; then
     echo "  3. 记录新版本到 .openclaw-version"
     echo ""
     
-    # 询问用户
-    echo -ne "${BLUE}  是否执行版本追踪操作？[y/N] ${NC}"
-    read -r RESPONSE
+    # 询问用户（自动模式跳过）
+    if $AUTO_MODE; then
+        echo -e "${YELLOW}⏭️  自动模式：确认执行${NC}"
+        RESPONSE="y"
+    else
+        echo -ne "${BLUE}  是否执行版本追踪操作？[y/N] ${NC}"
+        read -r RESPONSE
+    fi
     
     if [[ "$RESPONSE" =~ ^[Yy]$ ]]; then
         echo ""

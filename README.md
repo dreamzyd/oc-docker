@@ -8,6 +8,8 @@
 
 ### 单节点部署
 
+#### 方式一：推荐（构建 + 版本追踪一站式）
+
 ```bash
 # 1. 克隆仓库
 git clone git@github.com:dreamzyd/oc-docker.git
@@ -17,18 +19,38 @@ cd oc-docker
 cp .env.example .env
 vi .env  # 编辑配置
 
-# 3. 启动容器
+# 3. 构建并追踪版本（全自动）
+./scripts/build-and-track.sh --auto
+
+# 4. 启动容器
 docker compose up -d
 
-# 4. 查看状态
+# 5. 查看状态
 docker compose ps
 
-# 5. 访问 Control UI
+# 6. 访问 Control UI
 # 本地访问：http://127.0.0.1:18789/
 # SSH 隧道：ssh -N -L 18789:127.0.0.1:18789 user@host
 
-# 6. 查看 gateway token（首次登录需要）
+# 7. 查看 gateway token（首次登录需要）
 docker compose exec openclaw cat /root/.openclaw/openclaw.json | grep token
+```
+
+#### 方式二：分步操作（更灵活）
+
+```bash
+# 1-2. 同上（克隆 + 配置）
+
+# 3. 构建镜像
+docker compose build
+
+# 4. 版本追踪（交互式，会询问是否绑定版本）
+./scripts/version-tracker.sh
+
+# 5. 启动容器
+docker compose up -d
+
+# ... 后续同上
 ```
 
 ### 多节点部署
@@ -84,6 +106,7 @@ oc-docker/
 │   ├── single-node/        # 单节点示例
 │   └── multi-node/         # 多节点示例
 └── scripts/                # 工具脚本
+    ├── build-and-track.sh  # 构建 + 版本追踪一站式
     ├── backup.sh           # 备份脚本
     ├── restore.sh          # 恢复脚本
     └── version-tracker.sh  # 版本追踪脚本
@@ -115,6 +138,8 @@ oc-docker/
 
 ## 🛠️ 常用命令
 
+### 基础命令
+
 ```bash
 # 启动/停止
 docker compose up -d
@@ -130,14 +155,30 @@ docker compose logs -f
 # 进入容器
 docker compose exec openclaw bash
 
-# 构建镜像（重新安装 OpenClaw）
-docker compose build
+# 验证版本
+docker compose exec openclaw openclaw --version
+```
 
-# 版本追踪（build 后运行，将版本与目录绑定）
-./scripts/version-tracker.sh
+### 构建与版本追踪
 
-# 备份/恢复
+```bash
+# 方式一：一站式（推荐）
+./scripts/build-and-track.sh         # 交互模式
+./scripts/build-and-track.sh --auto  # 自动模式（不询问）
+
+# 方式二：分步操作
+docker compose build                 # 构建镜像
+./scripts/version-tracker.sh         # 版本追踪（交互）
+./scripts/version-tracker.sh --auto  # 版本追踪（自动）
+```
+
+### 备份与恢复
+
+```bash
+# 备份
 ./scripts/backup.sh
+
+# 恢复
 ./scripts/restore.sh <备份文件>
 ```
 
@@ -179,13 +220,17 @@ docker compose up -d
 **解决**：使用版本追踪脚本，将构建时的 OpenClaw 版本与目录绑定。
 
 ```bash
-# 首次构建后运行（交互式）
-./scripts/version-tracker.sh
+# 方式一：一站式（推荐，首次部署）
+./scripts/build-and-track.sh --auto  # 全自动，无需确认
+
+# 方式二：分步操作
+./scripts/version-tracker.sh         # 交互模式（会询问）
+./scripts/version-tracker.sh --auto  # 自动模式（不询问）
 
 # 输出示例：
 # ✅ OpenClaw 版本：2026.3.13
 # ⚠️  版本变化 detected!
-# 是否执行版本追踪操作？[y/N] y
+# ⏭️  自动模式：确认执行
 # ✅ 版本追踪完成！
 ```
 
@@ -226,10 +271,12 @@ docker compose build --build-arg OPENCLAW_VERSION=2026.3.13
 
 | 场景 | 操作 |
 |------|------|
-| 首次部署 | `docker compose up -d` → `./scripts/version-tracker.sh` → 确认绑定 |
-| 镜像被意外更新 | 重新 build → 运行脚本 → 确认是否绑定新版本 |
+| 首次部署 | `./scripts/build-and-track.sh --auto`（全自动） |
+| 日常重新构建 | `docker compose build`（不追踪版本） |
+| 镜像被意外更新 | `./scripts/build-and-track.sh`（交互式确认） |
 | 迁移到新服务器 | 恢复备份 → 按提示重建相同版本镜像 |
-| 主动升级 | 修改 Dockerfile 版本 → rebuild → 运行脚本 → 确认绑定 |
+| 主动升级 | 修改 Dockerfile → `./scripts/build-and-track.sh --auto` |
+| CI/CD 自动化 | `./scripts/version-tracker.sh --auto`（无交互） |
 
 ---
 
