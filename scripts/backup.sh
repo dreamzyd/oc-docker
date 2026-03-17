@@ -32,7 +32,8 @@ tar -czvf "$BACKUP_FILE" \
     .env \
     docker-compose.yml \
     Dockerfile \
-    scripts
+    scripts \
+    .openclaw-version 2>/dev/null || true  # 版本文件可能不存在
 
 # 显示备份大小
 BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)

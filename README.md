@@ -136,6 +136,9 @@ docker compose exec openclaw bash
 # 更新镜像
 docker compose pull
 docker compose up -d --force-recreate
+
+# 版本追踪（build 后自动获取版本并打标签）
+./scripts/version-tracker.sh
 ```
 
 ---
@@ -145,17 +148,51 @@ docker compose up -d --force-recreate
 ### 备份
 
 ```bash
+# 使用备份脚本（推荐）
+./scripts/backup.sh
+
+# 或手动备份
 tar -czvf openclaw-backup-$(date +%Y%m%d).tar.gz \
   .openclaw/ \
   .env \
-  docker-compose.yml
+  docker-compose.yml \
+  .openclaw-version 2>/dev/null || true
 ```
 
 ### 恢复
 
 ```bash
+# 使用恢复脚本（推荐）
+./scripts/restore.sh <备份文件>
+
+# 或手动恢复
 tar -xzvf openclaw-backup-20260313.tar.gz
 docker compose up -d
+```
+
+### 版本追踪
+
+**问题**：服务器其他进程更新了 OpenClaw 镜像，导致版本不一致？
+
+**解决**：使用版本追踪脚本，将构建时的 OpenClaw 版本与目录绑定。
+
+```bash
+# 首次构建后运行
+./scripts/version-tracker.sh
+
+# 作用：
+# 1. 获取容器中 OpenClaw 版本
+# 2. 提示用户是否更新镜像标签（openclaw:local → openclaw:<version>）
+# 3. 更新 docker-compose.yml 中的镜像标签
+# 4. 记录版本到 .openclaw-version
+
+# 备份时会包含 .openclaw-version
+# 恢复时会提示重建相同版本的镜像
+```
+
+**工作流程**：
+```
+build → version-tracker.sh → 提示用户 → 打标签 + 更新 compose → 备份时包含版本文件 → 恢复时重建相同版本
 ```
 
 ---

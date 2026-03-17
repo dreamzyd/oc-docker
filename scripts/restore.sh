@@ -45,6 +45,17 @@ docker compose down 2>/dev/null || true
 echo "📦 解压备份..."
 tar -xzvf "$BACKUP_FILE" -C "$PROJECT_DIR"
 
+# 检查版本文件
+VERSION_FILE="$PROJECT_DIR/.openclaw-version"
+if [ -f "$VERSION_FILE" ]; then
+    RECORDED_VERSION=$(cat "$VERSION_FILE")
+    echo ""
+    echo "📋 已记录版本：$RECORDED_VERSION"
+    echo "💡 提示：备份时的 OpenClaw 版本已记录"
+    echo "   如需重建相同版本的镜像，运行："
+    echo "     docker compose build --build-arg OPENCLAW_VERSION=$RECORDED_VERSION"
+fi
+
 # 启动容器
 echo "🚀 启动容器..."
 docker compose up -d
