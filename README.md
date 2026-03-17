@@ -85,7 +85,8 @@ oc-docker/
 │   └── multi-node/         # 多节点示例
 └── scripts/                # 工具脚本
     ├── backup.sh           # 备份脚本
-    └── restore.sh          # 恢复脚本
+    ├── restore.sh          # 恢复脚本
+    └── version-tracker.sh  # 版本追踪脚本
 ```
 
 ---
@@ -115,16 +116,12 @@ oc-docker/
 ## 🛠️ 常用命令
 
 ```bash
-# 启动
+# 启动/停止
 docker compose up -d
-
-# 停止
 docker compose down
 
-# 重启
+# 重启/查看状态
 docker compose restart
-
-# 查看状态
 docker compose ps
 
 # 查看日志
@@ -133,12 +130,15 @@ docker compose logs -f
 # 进入容器
 docker compose exec openclaw bash
 
-# 更新镜像
-docker compose pull
-docker compose up -d --force-recreate
+# 构建镜像（重新安装 OpenClaw）
+docker compose build
 
-# 版本追踪（build 后自动获取版本并打标签）
+# 版本追踪（build 后运行，将版本与目录绑定）
 ./scripts/version-tracker.sh
+
+# 备份/恢复
+./scripts/backup.sh
+./scripts/restore.sh <备份文件>
 ```
 
 ---
@@ -170,30 +170,66 @@ tar -xzvf openclaw-backup-20260313.tar.gz
 docker compose up -d
 ```
 
-### 版本追踪
+### 版本追踪 ⭐
 
-**问题**：服务器其他进程更新了 OpenClaw 镜像，导致版本不一致？
+**问题**：
+- 服务器其他进程更新了 OpenClaw 镜像，导致版本不一致？
+- 迁移到新服务器后，镜像版本不同导致行为差异？
 
 **解决**：使用版本追踪脚本，将构建时的 OpenClaw 版本与目录绑定。
 
 ```bash
-# 首次构建后运行
+# 首次构建后运行（交互式）
 ./scripts/version-tracker.sh
 
-# 作用：
-# 1. 获取容器中 OpenClaw 版本
-# 2. 提示用户是否更新镜像标签（openclaw:local → openclaw:<version>）
-# 3. 更新 docker-compose.yml 中的镜像标签
-# 4. 记录版本到 .openclaw-version
+# 输出示例：
+# ✅ OpenClaw 版本：2026.3.13
+# ⚠️  版本变化 detected!
+# 是否执行版本追踪操作？[y/N] y
+# ✅ 版本追踪完成！
+```
 
-# 备份时会包含 .openclaw-version
-# 恢复时会提示重建相同版本的镜像
+**脚本会做什么**：
+1. 获取容器中 OpenClaw 版本
+2. 提示用户是否更新（**用户确认后才执行**）
+3. 如果同意：
+   - 给镜像打标签：`openclaw:local` → `openclaw:2026.3.13`
+   - 更新 `docker-compose.yml` 中的镜像标签
+   - 记录版本到 `.openclaw-version`
+
+**用户选择权**：
+- **同意（y）**：绑定当前版本，后续备份/恢复都使用此版本
+- **拒绝（N）**：保持现状，继续使用 `openclaw:local` 标签
+
+**备份与恢复**：
+```bash
+# 备份时自动包含 .openclaw-version
+./scripts/backup.sh
+
+# 恢复后会提示版本信息
+./scripts/restore.sh backup-20260317.tar.gz
+
+# 如需重建相同版本：
+docker compose build --build-arg OPENCLAW_VERSION=2026.3.13
 ```
 
 **工作流程**：
 ```
-build → version-tracker.sh → 提示用户 → 打标签 + 更新 compose → 备份时包含版本文件 → 恢复时重建相同版本
+构建镜像 → version-tracker.sh → 用户确认 → 打标签 + 更新 compose
+                                    ↓
+                            备份时包含版本文件
+                                    ↓
+                            恢复时提示重建相同版本
 ```
+
+**典型场景**：
+
+| 场景 | 操作 |
+|------|------|
+| 首次部署 | `docker compose up -d` → `./scripts/version-tracker.sh` → 确认绑定 |
+| 镜像被意外更新 | 重新 build → 运行脚本 → 确认是否绑定新版本 |
+| 迁移到新服务器 | 恢复备份 → 按提示重建相同版本镜像 |
+| 主动升级 | 修改 Dockerfile 版本 → rebuild → 运行脚本 → 确认绑定 |
 
 ---
 
