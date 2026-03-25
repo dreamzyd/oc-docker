@@ -112,13 +112,24 @@ if [ "$OPENCLAW_VERSION" != "$RECORDED_VERSION" ]; then
         
         # 3.1 给镜像打标签
         echo -e "${YELLOW}[3/5] 给镜像打标签...${NC}"
-        docker tag openclaw:local "openclaw:$OPENCLAW_VERSION"
-        echo "  ✅ 镜像标签：openclaw:$OPENCLAW_VERSION"
+        # 从 docker-compose.yml 读取当前镜像标签
+        CURRENT_IMAGE=$(grep -oP 'image:\s*\K[^\s]+' "$COMPOSE_FILE" | head -1)
+        if [ -n "$CURRENT_IMAGE" ] && [ "$CURRENT_IMAGE" != "openclaw:$OPENCLAW_VERSION" ]; then
+            docker tag "$CURRENT_IMAGE" "openclaw:$OPENCLAW_VERSION"
+            echo "  ✅ 镜像标签：$CURRENT_IMAGE → openclaw:$OPENCLAW_VERSION"
+        elif [ -n "$CURRENT_IMAGE" ]; then
+            echo "  ✅ 镜像已经是正确标签：openclaw:$OPENCLAW_VERSION"
+        else
+            echo -e "${RED}  ❌ 无法从 docker-compose.yml 读取镜像名${NC}"
+        fi
         
-        # 3.2 删除旧的 local 标签（避免混淆）
-        echo -e "${YELLOW}[4/5] 删除旧的 local 标签...${NC}"
-        docker rmi openclaw:local
-        echo "  ✅ 已删除 openclaw:local"
+        # 3.2 清理旧标签（如果新旧不同且旧标签存在）
+        echo -e "${YELLOW}[4/5] 清理旧标签...${NC}"
+        if [ -n "$CURRENT_IMAGE" ] && [ "$CURRENT_IMAGE" != "openclaw:$OPENCLAW_VERSION" ]; then
+            docker rmi "$CURRENT_IMAGE" 2>/dev/null && echo "  ✅ 已删除旧标签 $CURRENT_IMAGE" || echo "  ⚠️  旧标签 $CURRENT_IMAGE 仍在使用中，稍后清理"
+        else
+            echo "  ✅ 无需清理"
+        fi
         
         # 3.3 更新 docker-compose.yml
         echo -e "${YELLOW}[5/5] 更新 docker-compose.yml...${NC}"
