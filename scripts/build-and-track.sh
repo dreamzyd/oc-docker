@@ -1,14 +1,19 @@
 #!/bin/bash
 
 # OpenClaw Docker 构建 + 版本追踪一站式脚本
-# 用法：./scripts/build-and-track.sh [--auto]
+# 用法：./scripts/build-and-track.sh [--auto] [--name 锋哥] [--no-cache]
 #
 # 流程：
 # 1. 临时构建镜像（不打标签）
 # 2. 获取实际 openclaw 版本
-# 3. 给镜像打正确的版本标签
-# 4. 更新 docker-compose.yml 和 .openclaw-version
+# 3. 给镜像打正确的版本标签（根据 --name 参数决定前缀）
+# 4. 更新本地 docker-compose.yml 和 .openclaw-version（不提交到 git）
 # 5. 不删除旧标签（可能被其他容器使用）
+#
+# 标签规则：
+# - --name 锋哥 → fengge:VERSION
+# - --name 星冉 → xingran:VERSION
+# - 不指定 → openclaw:VERSION
 
 set -e
 
@@ -25,8 +30,12 @@ NC='\033[0m'
 
 AUTO_MODE=false
 NO_CACHE=""
+INSTANCE_NAME=""
 if [[ "$*" == *"--auto"* ]]; then AUTO_MODE=true; fi
 if [[ "$*" == *"--no-cache"* ]]; then NO_CACHE="--no-cache"; fi
+if [[ "$*" == *"--name"* ]]; then
+    INSTANCE_NAME=$(echo "$*" | sed -n 's/.*--name \([^ ]*\).*/\1/p')
+fi
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  OpenClaw 构建 + 版本追踪${NC}"
@@ -84,26 +93,66 @@ docker rmi "$TEMP_TAG" 2>/dev/null || true
 # 4. 更新 docker-compose.yml 和 .openclaw-version
 echo -e "${GREEN}[4/5] 更新配置文件...${NC}"
 
-if grep -q "image: openclaw:" "$COMPOSE_FILE"; then
-    sed -i "s|image: openclaw:.*|image: openclaw:$NEW_VERSION|" "$COMPOSE_FILE"
-    echo -e "  ✅ docker-compose.yml → openclaw:$NEW_VERSION"
+# 根据实例名称决定标签前缀
+if [ -n "$INSTANCE_NAME" ]; then
+    # 中文名转拼音/英文：锋哥→fengge, 星冉→xingran, 乘澜→chenglan
+    case "$INSTANCE_NAME" in
+        锋哥) PREFIX="fengge" ;;
+        星冉) PREFIX="xingran" ;;
+        乘澜) PREFIX="chenglan" ;;
+        小宁) PREFIX="xiaoning" ;;
+        钳哥) PREFIX="qian" ;;
+        *) PREFIX=$(echo "$INSTANCE_NAME" | tr '[:upper:]' '[:lower:]') ;;
+    esac
+    echo -e "  📋 实例名称：${YELLOW}$INSTANCE_NAME${NC} → 标签前缀：$PREFIX"
+else
+    PREFIX="openclaw"
+    echo -e "  📋 未指定实例名称，使用默认前缀：${YELLOW}$PREFIX${NC}"
 fi
 
+FINAL_TAG="$PREFIX:$NEW_VERSION"
+
+# 更新 docker-compose.yml（本地修改，不提交到 git）
+if grep -q "image: openclaw:" "$COMPOSE_FILE"; then
+    sed -i "s|image: openclaw:.*|image: $FINAL_TAG|" "$COMPOSE_FILE"
+    echo -e "  ✅ docker-compose.yml → $FINAL_TAG"
+else
+    echo -e "  ⏭️ docker-compose.yml 中没有 openclaw 镜像配置，跳过更新"
+fi
+
+# 更新 .openclaw-version（本地版本记录，不提交到 git）
 echo "$NEW_VERSION" > "$VERSION_FILE"
 echo -e "  ✅ .openclaw-version → $NEW_VERSION"
 
-# 5. Git 提交（auto 模式）
+# 5. Git 提交（仅手动模式，且只提交脚本本身的变更，不提交 docker-compose.yml）
 echo -e "${GREEN}[5/5] Git 提交...${NC}"
-if $AUTO_MODE && command -v git &>/dev/null && [ -d .git ]; then
-    git add docker-compose.yml .openclaw-version 2>/dev/null
-    if ! git diff --cached --quiet 2>/dev/null; then
-        git commit -m "chore: update openclaw to $NEW_VERSION" 2>/dev/null
-        git push 2>/dev/null && echo -e "  ✅ 已推送到 GitHub" || echo -e "${YELLOW}  ⚠️ 推送失败，稍后手动推${NC}"
+if $AUTO_MODE; then
+    echo -e "  ⏭️ auto 模式，跳过 Git 提交（docker-compose.yml 和 .openclaw-version 是本地文件）"
+elif command -v git &>/dev/null && [ -d .git ]; then
+    echo -e "  💡 提示：docker-compose.yml 和 .openclaw-version 是本地文件，不会提交到 GitHub"
+    read -p "  是否提交其他变更？[y/N] " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        git status
+        read -p "  输入要提交的文件（空格分隔，或回车跳过）: " -r FILES
+        if [ -n "$FILES" ]; then
+            git add $FILES
+            git commit -m "chore: local updates"
+            read -p "  是否推送到 GitHub? [y/N] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                git push 2>/dev/null && echo -e "  ✅ 已推送到 GitHub" || echo -e "${YELLOW}  ⚠️ 推送失败，稍后手动推${NC}"
+            else
+                echo -e "  ⏭️ 跳过推送"
+            fi
+        else
+            echo -e "  ⏭️ 跳过提交"
+        fi
     else
-        echo -e "  ✅ 无变更，跳过提交"
+        echo -e "  ⏭️ 跳过提交"
     fi
 else
-    echo -e "  ⏭️ 非 auto 模式，跳过提交"
+    echo -e "  ⏭️ 非 Git 仓库，跳过提交"
 fi
 
 # 显示最终状态
@@ -111,13 +160,14 @@ echo ""
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}✅ 完成！${NC}"
 echo ""
-echo "  新版本：openclaw:$NEW_VERSION"
+echo "  新镜像：$FINAL_TAG"
 if [ -n "$OLD_VERSION" ] && [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
-    echo -e "  旧版本：openclaw:$OLD_VERSION ${YELLOW}(标签保留，不删除)${NC}"
+    echo -e "  记录版本：${YELLOW}$OLD_VERSION${NC} → ${GREEN}$NEW_VERSION${NC}"
 fi
 echo ""
 echo "  💡 启动容器：docker compose up -d"
 echo "  💡 验证版本：docker compose exec openclaw openclaw --version"
 echo ""
-echo -e "  ⚠️ 注意：旧标签不会被删除，防止影响其他容器（如星冉）"
+echo -e "  📝 提示：docker-compose.yml 已更新为本地配置，不会提交到 GitHub"
+echo -e "  ⚠️ 注意：旧标签不会被删除，防止影响其他容器"
 echo -e "${BLUE}========================================${NC}"

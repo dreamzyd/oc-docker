@@ -9,9 +9,9 @@ services:
       dockerfile: Dockerfile
     
     # 镜像名称
-    # 锋哥使用独立标签，避免和星冉/其他实例冲突
-    # 首次构建后会自动更新为具体版本号（如 fengge:2026.3.13）
-    image: fengge:2026.3.23-2
+    # 通用模板，首次构建后会自动更新为具体版本号
+    # 本地使用时建议用 --name 参数指定实例名（如锋哥→fengge:VERSION）
+    image: openclaw:latest
     
     # 不指定容器名，让 Docker Compose 自动管理
     # 容器名格式：<项目名>_openclaw_1
