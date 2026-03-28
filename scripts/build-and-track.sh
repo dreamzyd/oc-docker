@@ -7,8 +7,7 @@
 # 1. 临时构建镜像（不打标签）
 # 2. 获取实际 openclaw 版本
 # 3. 给镜像打正确的版本标签（根据 --name 参数决定前缀）
-# 4. 更新本地 docker-compose.yml 和 .openclaw-version（不提交到 git）
-# 5. 不删除旧标签（可能被其他容器使用）
+# 4. 更新本地 docker-compose.yml 和 .openclaw-version
 #
 # 标签规则：
 # - --name 锋哥 → fengge:VERSION
@@ -91,7 +90,7 @@ fi
 
 FINAL_TAG="$PREFIX:$NEW_VERSION"
 
-echo -e "${GREEN}[3/5] 打标签 $FINAL_TAG ...${NC}"
+echo -e "${GREEN}[3/4] 打标签 $FINAL_TAG ...${NC}"
 
 # 检查是否已存在同名标签（不同镜像）
 EXISTING_ID=$(docker images -q "$FINAL_TAG" 2>/dev/null)
@@ -108,10 +107,10 @@ echo -e "  ✅ 标签已打：$FINAL_TAG"
 # 清理临时标签
 docker rmi "$TEMP_TAG" 2>/dev/null || true
 
-# 4. 更新 docker-compose.yml 和 .openclaw-version
-echo -e "${GREEN}[4/5] 更新配置文件...${NC}"
+# 4. 更新配置文件
+echo -e "${GREEN}[4/4] 更新配置文件...${NC}"
 
-# 更新 docker-compose.yml（本地修改，不提交到 git）
+# 更新 docker-compose.yml
 if grep -q "image: openclaw:" "$COMPOSE_FILE"; then
     sed -i "s|image: openclaw:.*|image: $FINAL_TAG|" "$COMPOSE_FILE"
     echo -e "  ✅ docker-compose.yml → $FINAL_TAG"
@@ -119,39 +118,9 @@ else
     echo -e "  ⏭️ docker-compose.yml 中没有 openclaw 镜像配置，跳过更新"
 fi
 
-# 更新 .openclaw-version（本地版本记录，不提交到 git）
+# 更新 .openclaw-version（本地版本记录）
 echo "$NEW_VERSION" > "$VERSION_FILE"
 echo -e "  ✅ .openclaw-version → $NEW_VERSION"
-
-# 5. Git 提交（仅手动模式）
-echo -e "${GREEN}[5/5] Git 提交...${NC}"
-if $AUTO_MODE; then
-    echo -e "  ⏭️ auto 模式，跳过 Git 提交"
-elif command -v git &>/dev/null && [ -d .git ]; then
-    read -p "  是否提交变更？[y/N] " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        git status
-        read -p "  输入要提交的文件（空格分隔，或回车跳过）: " -r FILES
-        if [ -n "$FILES" ]; then
-            git add $FILES
-            git commit -m "chore: updates"
-            read -p "  是否推送？[y/N] " -n 1 -r
-            echo
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-                git push 2>/dev/null && echo -e "  ✅ 已推送" || echo -e "${YELLOW}  ⚠️ 推送失败，稍后手动推${NC}"
-            else
-                echo -e "  ⏭️ 跳过推送"
-            fi
-        else
-            echo -e "  ⏭️ 跳过提交"
-        fi
-    else
-        echo -e "  ⏭️ 跳过提交"
-    fi
-else
-    echo -e "  ⏭️ 非 Git 仓库，跳过提交"
-fi
 
 # 显示最终状态
 echo ""
