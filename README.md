@@ -22,6 +22,15 @@ vi .env  # 编辑配置
 # 3. 构建并追踪版本（全自动）
 ./scripts/build-and-track.sh --auto
 
+# 指定实例名称（多实例部署时避免标签冲突）
+./scripts/build-and-track.sh --auto --name 锋哥
+
+# 强制不使用缓存（获取最新 OpenClaw 版本）
+./scripts/build-and-track.sh --auto --no-cache
+
+# 组合使用：指定实例 + 不使用缓存
+./scripts/build-and-track.sh --auto --name 锋哥 --no-cache
+
 # 4. 启动容器
 docker compose up -d
 
@@ -163,14 +172,37 @@ docker compose exec openclaw openclaw --version
 
 ```bash
 # 方式一：一站式（推荐）
-./scripts/build-and-track.sh         # 交互模式
-./scripts/build-and-track.sh --auto  # 自动模式（不询问）
+./scripts/build-and-track.sh                    # 交互模式
+./scripts/build-and-track.sh --auto             # 自动模式（不询问）
+./scripts/build-and-track.sh --auto --name 锋哥  # 指定实例名称（多实例部署）
+./scripts/build-and-track.sh --auto --no-cache  # 强制不使用缓存（获取最新版本）
 
 # 方式二：分步操作
 docker compose build                 # 构建镜像
 ./scripts/version-tracker.sh         # 版本追踪（交互）
 ./scripts/version-tracker.sh --auto  # 版本追踪（自动）
 ```
+
+**参数说明：**
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `--auto` | 自动模式，不询问确认 | `./scripts/build-and-track.sh --auto` |
+| `--name <实例名>` | 指定实例名称，生成独立镜像标签 | `--name 锋哥` → `fengge:VERSION` |
+| `--no-cache` | 强制不使用 Docker 缓存，获取最新 OpenClaw | 推荐与 `--auto` 一起使用 |
+
+**实例名称与镜像标签对应关系：**
+
+| --name 参数 | 镜像标签 | 适用场景 |
+|------------|---------|---------|
+| 锋哥 | `fengge:VERSION` | 亘笛的主助手（量化 + 生活） |
+| 星冉 | `xingran:VERSION` | 学习陪伴 AI（学姐） |
+| 乘澜 | `chenglan:VERSION` | 量化管理 AI（本地） |
+| 小宁 | `xiaoning:VERSION` | 家人使用 |
+| 钳哥 | `qian:VERSION` | 钳哥实例 |
+| 不指定 | `openclaw:VERSION` | 单实例测试 |
+
+> 💡 **提示**：多实例部署时，建议每个实例使用 `--name` 参数指定独立标签，避免镜像标签冲突。
 
 ### 备份与恢复
 
