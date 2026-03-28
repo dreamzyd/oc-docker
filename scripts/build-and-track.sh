@@ -72,27 +72,6 @@ fi
 echo -e "  ✅ OpenClaw 版本：${GREEN}$NEW_VERSION${NC}"
 
 # 3. 打正确的版本标签
-echo -e "${GREEN}[3/5] 打标签 openclaw:$NEW_VERSION ...${NC}"
-FINAL_TAG="openclaw:$NEW_VERSION"
-
-# 检查是否已存在同名标签（不同镜像）
-EXISTING_ID=$(docker images -q "$FINAL_TAG" 2>/dev/null)
-TEMP_ID=$(docker images -q "$TEMP_TAG" 2>/dev/null)
-
-if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "$TEMP_ID" ]; then
-    echo -e "${YELLOW}  ⚠️ 已存在 $FINAL_TAG（不同镜像），将覆盖标签${NC}"
-    echo -e "${YELLOW}  旧镜像 ID: $EXISTING_ID（如果有其他容器在用，不受影响）${NC}"
-fi
-
-docker tag "$TEMP_TAG" "$FINAL_TAG"
-echo -e "  ✅ 标签已打：$FINAL_TAG"
-
-# 清理临时标签
-docker rmi "$TEMP_TAG" 2>/dev/null || true
-
-# 4. 更新 docker-compose.yml 和 .openclaw-version
-echo -e "${GREEN}[4/5] 更新配置文件...${NC}"
-
 # 根据实例名称决定标签前缀
 if [ -n "$INSTANCE_NAME" ]; then
     # 中文名转拼音/英文：锋哥→fengge, 星冉→xingran, 乘澜→chenglan
@@ -112,6 +91,26 @@ fi
 
 FINAL_TAG="$PREFIX:$NEW_VERSION"
 
+echo -e "${GREEN}[3/5] 打标签 $FINAL_TAG ...${NC}"
+
+# 检查是否已存在同名标签（不同镜像）
+EXISTING_ID=$(docker images -q "$FINAL_TAG" 2>/dev/null)
+TEMP_ID=$(docker images -q "$TEMP_TAG" 2>/dev/null)
+
+if [ -n "$EXISTING_ID" ] && [ "$EXISTING_ID" != "$TEMP_ID" ]; then
+    echo -e "${YELLOW}  ⚠️ 已存在 $FINAL_TAG（不同镜像），将覆盖标签${NC}"
+    echo -e "${YELLOW}  旧镜像 ID: $EXISTING_ID（如果有其他容器在用，不受影响）${NC}"
+fi
+
+docker tag "$TEMP_TAG" "$FINAL_TAG"
+echo -e "  ✅ 标签已打：$FINAL_TAG"
+
+# 清理临时标签
+docker rmi "$TEMP_TAG" 2>/dev/null || true
+
+# 4. 更新 docker-compose.yml 和 .openclaw-version
+echo -e "${GREEN}[4/5] 更新配置文件...${NC}"
+
 # 更新 docker-compose.yml（本地修改，不提交到 git）
 if grep -q "image: openclaw:" "$COMPOSE_FILE"; then
     sed -i "s|image: openclaw:.*|image: $FINAL_TAG|" "$COMPOSE_FILE"
@@ -124,24 +123,23 @@ fi
 echo "$NEW_VERSION" > "$VERSION_FILE"
 echo -e "  ✅ .openclaw-version → $NEW_VERSION"
 
-# 5. Git 提交（仅手动模式，且只提交脚本本身的变更，不提交 docker-compose.yml）
+# 5. Git 提交（仅手动模式）
 echo -e "${GREEN}[5/5] Git 提交...${NC}"
 if $AUTO_MODE; then
-    echo -e "  ⏭️ auto 模式，跳过 Git 提交（docker-compose.yml 和 .openclaw-version 是本地文件）"
+    echo -e "  ⏭️ auto 模式，跳过 Git 提交"
 elif command -v git &>/dev/null && [ -d .git ]; then
-    echo -e "  💡 提示：docker-compose.yml 和 .openclaw-version 是本地文件，不会提交到 GitHub"
-    read -p "  是否提交其他变更？[y/N] " -n 1 -r
+    read -p "  是否提交变更？[y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         git status
         read -p "  输入要提交的文件（空格分隔，或回车跳过）: " -r FILES
         if [ -n "$FILES" ]; then
             git add $FILES
-            git commit -m "chore: local updates"
-            read -p "  是否推送到 GitHub? [y/N] " -n 1 -r
+            git commit -m "chore: updates"
+            read -p "  是否推送？[y/N] " -n 1 -r
             echo
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                git push 2>/dev/null && echo -e "  ✅ 已推送到 GitHub" || echo -e "${YELLOW}  ⚠️ 推送失败，稍后手动推${NC}"
+                git push 2>/dev/null && echo -e "  ✅ 已推送" || echo -e "${YELLOW}  ⚠️ 推送失败，稍后手动推${NC}"
             else
                 echo -e "  ⏭️ 跳过推送"
             fi
@@ -168,6 +166,5 @@ echo ""
 echo "  💡 启动容器：docker compose up -d"
 echo "  💡 验证版本：docker compose exec openclaw openclaw --version"
 echo ""
-echo -e "  📝 提示：docker-compose.yml 已更新为本地配置，不会提交到 GitHub"
 echo -e "  ⚠️ 注意：旧标签不会被删除，防止影响其他容器"
 echo -e "${BLUE}========================================${NC}"
